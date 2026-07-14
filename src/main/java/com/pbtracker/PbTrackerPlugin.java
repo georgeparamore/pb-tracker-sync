@@ -921,7 +921,12 @@ public class PbTrackerPlugin extends Plugin
 		String boss = modeAlias != null ? modeAlias[0] : resolveBossAlias(bossArg);
 		String requiredMode = modeAlias != null ? modeAlias[1] : parsedMode;
 
-		String playerName = client.getLocalPlayer().getName();
+		// A chat command handler runs independently on every client that sees
+		// the message, not just the one who typed it - client.getLocalPlayer()
+		// here would always be "whoever is viewing this", making !pbr show
+		// the VIEWER's own PB for everyone else's command too. The message's
+		// own sender name is what actually identifies whose PB to look up.
+		String playerName = Text.removeTags(chatMessage.getName());
 
 		SyncClient.PlayerLookupResult result = syncClient.lookupPlayer(playerName);
 		switch (result.kind)
