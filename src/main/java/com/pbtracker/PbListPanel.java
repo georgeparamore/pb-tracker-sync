@@ -68,6 +68,7 @@ class PbListPanel extends JPanel implements Scrollable
 	void setAllBosses(List<String> allBosses)
 	{
 		this.allBosses = allBosses;
+		rerender();
 	}
 
 	@Override
@@ -134,9 +135,20 @@ class PbListPanel extends JPanel implements Scrollable
 		final int rank;
 		final String clickKey;
 		final List<BossGroups.PlayerRaidVariant> variants;
+		final double topTimeSeconds;
+		final int topRank;
+		final String topClickKey;
 
 		DisplayRow(String heading, String iconKey, String primaryName, String subtitle, boolean hasData,
 			double timeSeconds, int rank, String clickKey, List<BossGroups.PlayerRaidVariant> variants)
+		{
+			this(heading, iconKey, primaryName, subtitle, hasData, timeSeconds, rank, clickKey, variants,
+				timeSeconds, rank, clickKey);
+		}
+
+		DisplayRow(String heading, String iconKey, String primaryName, String subtitle, boolean hasData,
+			double timeSeconds, int rank, String clickKey, List<BossGroups.PlayerRaidVariant> variants,
+			double topTimeSeconds, int topRank, String topClickKey)
 		{
 			this.heading = heading;
 			this.iconKey = iconKey;
@@ -147,6 +159,15 @@ class PbListPanel extends JPanel implements Scrollable
 			this.rank = rank;
 			this.clickKey = clickKey;
 			this.variants = variants;
+			this.topTimeSeconds = topTimeSeconds;
+			this.topRank = topRank;
+			this.topClickKey = topClickKey;
+		}
+
+		DisplayRow forTopBosses()
+		{
+			return new DisplayRow(heading, iconKey, primaryName, subtitle, hasData,
+				topTimeSeconds, topRank, topClickKey, variants);
 		}
 	}
 
@@ -184,14 +205,14 @@ class PbListPanel extends JPanel implements Scrollable
 				ranked.add(row);
 			}
 		}
-		ranked.sort(Comparator.comparingInt(r -> r.rank));
+		ranked.sort(Comparator.comparingInt(r -> r.topRank));
 
 		addSectionHeader("Top Bosses", topBossesSectionExpanded, () -> topBossesSectionExpanded = !topBossesSectionExpanded);
 		if (topBossesSectionExpanded)
 		{
 			for (int i = 0; i < Math.min(5, ranked.size()); i++)
 			{
-				addDisplayRow(ranked.get(i), player.displayName, onBossClick);
+				addDisplayRow(ranked.get(i).forTopBosses(), player.displayName, onBossClick);
 			}
 		}
 
@@ -279,8 +300,10 @@ class PbListPanel extends JPanel implements Scrollable
 			return new DisplayRow(heading, heading, primaryName, subtitle, false, 0, 0, templateClickKey, null);
 		}
 		List<BossGroups.PlayerRaidVariant> variants = playerGroup.variants.size() > 1 ? playerGroup.variants : null;
+		BossGroups.PlayerRaidVariant bestRanked = BossGroups.pickBestRanked(playerGroup.variants);
 		return new DisplayRow(heading, heading, primaryName, subtitle, true,
-			playerGroup.summary.timeSeconds, playerGroup.summary.rank, playerGroup.summary.key, variants);
+			playerGroup.summary.timeSeconds, playerGroup.summary.rank, playerGroup.summary.key, variants,
+			bestRanked.timeSeconds, bestRanked.rank, bestRanked.key);
 	}
 
 	private DisplayRow buildFlatRow(String key, BossGroups.PlayerPb pb)

@@ -500,6 +500,14 @@ final class BossGroups
 		return variants.get(0);
 	}
 
+	static PlayerRaidVariant pickBestRanked(List<PlayerRaidVariant> variants)
+	{
+		return variants.stream()
+			.min(Comparator.comparingInt((PlayerRaidVariant v) -> v.rank)
+				.thenComparingDouble(v -> v.timeSeconds))
+			.orElseThrow(() -> new IllegalArgumentException("variants must not be empty"));
+	}
+
 	/** Groups a player's own synced PBs into one row per raid+mode heading, for display. */
 	static GroupedPlayerPbs groupPlayerRaidPbs(List<PlayerPb> pbs)
 	{

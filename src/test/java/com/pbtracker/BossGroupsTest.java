@@ -129,6 +129,21 @@ public class BossGroupsTest
 	}
 
 	@Test
+	public void picksBestRankedVariantIndependentlyOfFastestSummary()
+	{
+		List<BossGroups.PlayerPb> pbs = List.of(
+			pb("chambers of xeric - challenge mode - fastest overall (solo)", 2000, 2),
+			pb("chambers of xeric - challenge mode - fastest overall (3 players)", 1000, 100)
+		);
+		BossGroups.GroupedPlayerPbs result = BossGroups.groupPlayerRaidPbs(pbs);
+		BossGroups.PlayerRaidGroup group = findGroup(result, "Chambers Of Xeric - Challenge Mode");
+
+		assertEquals("chambers of xeric - challenge mode - fastest overall (3 players)", group.summary.key);
+		assertEquals("chambers of xeric - challenge mode - fastest overall (solo)",
+			BossGroups.pickBestRanked(group.variants).key);
+	}
+
+	@Test
 	public void ignoresFasterRoomTimesWhenOverallVariantPresent()
 	{
 		List<BossGroups.PlayerPb> pbs = List.of(

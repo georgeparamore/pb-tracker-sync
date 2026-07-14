@@ -3,6 +3,7 @@ package com.pbtracker;
 import net.runelite.client.game.SpriteManager;
 
 import javax.swing.ImageIcon;
+import javax.swing.SwingUtilities;
 import java.awt.Image;
 import java.util.Collections;
 import java.util.HashMap;
@@ -39,23 +40,30 @@ final class BossIcons
 	 * from their base form there, so they borrow its icon, and the
 	 * Tzhaar-Ket-Rak challenges (not on the hiscores at all) borrow Jad's.
 	 */
-	private static final Map<String, String> ALIASES = Map.of(
-		"duke_sucellus_(awakened)", "duke_sucellus",
-		"leviathan_(awakened)", "the_leviathan",
-		"vardorvis_(awakened)", "vardorvis",
-		"whisperer_(awakened)", "the_whisperer",
-		"demonic_brutus", "brutus",
-		"tzhaar_ket_raks_fifth_challenge", "tztok_jad",
-		"tzhaar_ket_raks_sixth_challenge", "tztok_jad"
+	private static final Map<String, String> ALIASES = Map.ofEntries(
+		Map.entry("duke_sucellus_(awakened)", "duke_sucellus"),
+		Map.entry("leviathan_(awakened)", "leviathan"),
+		Map.entry("vardorvis_(awakened)", "vardorvis"),
+		Map.entry("whisperer_(awakened)", "whisperer"),
+		Map.entry("demonic_brutus", "brutus"),
+		Map.entry("sol_heredit", "fortis_colosseum"),
+		Map.entry("tzkal_zuk", "inferno"),
+		Map.entry("fight_caves", "tzhaar_fight_cave"),
+		Map.entry("tzhaar_ket_raks_first_challenge", "tztok_jad"),
+		Map.entry("tzhaar_ket_raks_second_challenge", "tztok_jad"),
+		Map.entry("tzhaar_ket_raks_third_challenge", "tztok_jad"),
+		Map.entry("tzhaar_ket_raks_fourth_challenge", "tztok_jad"),
+		Map.entry("tzhaar_ket_raks_fifth_challenge", "tztok_jad"),
+		Map.entry("tzhaar_ket_raks_sixth_challenge", "tztok_jad")
 	);
 
 	/**
 	 * Fetches (and caches) the sprite for this boss and hands it to
 	 * `onLoaded` once available. Does nothing if there's no icon for this
 	 * boss - callers should just leave their icon label blank in that case.
-	 * SpriteManager loads sprites asynchronously off the client thread and
-	 * already invokes its callback on the EDT, so `onLoaded` is safe to
-	 * touch Swing components directly - but NOT safe to call on a shared,
+	 * SpriteManager invokes cache-miss callbacks on RuneLite's client thread,
+	 * not Swing's EDT, so callbacks are explicitly delivered on the EDT before
+	 * they touch Swing components. They are still NOT safe to apply to a shared,
 	 * transient component like a JList cell renderer's label (it may be
 	 * reused for a different row by the time the callback fires); use
 	 * `getCached` + a repaint there instead, see PickerEntryRenderer.
@@ -75,7 +83,7 @@ final class BossIcons
 		ImageIcon cached = CACHE.get(spriteId);
 		if (cached != null)
 		{
-			onLoaded.accept(cached);
+			deliverOnEdt(onLoaded, cached);
 			return;
 		}
 
@@ -88,8 +96,20 @@ final class BossIcons
 			Image scaled = image.getScaledInstance(SIZE, SIZE, Image.SCALE_SMOOTH);
 			ImageIcon icon = new ImageIcon(scaled);
 			CACHE.put(spriteId, icon);
-			onLoaded.accept(icon);
+			deliverOnEdt(onLoaded, icon);
 		});
+	}
+
+	static void deliverOnEdt(Consumer<ImageIcon> onLoaded, ImageIcon icon)
+	{
+		if (SwingUtilities.isEventDispatchThread())
+		{
+			onLoaded.accept(icon);
+		}
+		else
+		{
+			SwingUtilities.invokeLater(() -> onLoaded.accept(icon));
+		}
 	}
 
 	/** Cache-only lookup (no fetch) - null if this boss's icon hasn't loaded yet (or has none). */
@@ -99,7 +119,7 @@ final class BossIcons
 		return spriteId == null ? null : CACHE.get(spriteId);
 	}
 
-	private static Integer spriteIdFor(String bossKey)
+	static Integer spriteIdFor(String bossKey)
 	{
 		String slug = slugFor(bossKey);
 		if (slug == null)
