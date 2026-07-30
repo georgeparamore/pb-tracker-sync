@@ -259,6 +259,49 @@ public class BossGroupsTest
 		assertEquals(2, group.variants.size());
 	}
 
+	@Test
+	public void collapsesChambersOfXericLargestTeamSizeRunOnKeysIntoTheRightHeading()
+	{
+		List<String> bosses = List.of(
+			"chambers of xeric - fastest overall (solo)",
+			"chambers of xeric 24+ players",
+			"chambers of xeric - challenge mode - fastest overall (solo)",
+			"chambers of xeric challenge mode 24+ players"
+		);
+		List<BossGroups.RaidGroup> groups = BossGroups.groupedRaidGroups(bosses);
+		BossGroups.RaidGroup normal = groups.stream().filter(g -> g.heading.equals("Chambers Of Xeric")).findFirst().orElseThrow();
+		BossGroups.RaidGroup challenge = groups.stream().filter(g -> g.heading.equals("Chambers Of Xeric - Challenge Mode")).findFirst().orElseThrow();
+		assertEquals(2, normal.variants.size());
+		assertEquals(2, challenge.variants.size());
+	}
+
+	@Test
+	public void collapsesAwakenedDt2BossesIntoOneEntryWithANormalAwakenedToggle()
+	{
+		List<String> bosses = List.of("duke sucellus", "duke sucellus (awakened)", "zulrah");
+		assertTrue(BossGroups.isGroupedVariant("duke sucellus"));
+		assertTrue(BossGroups.isGroupedVariant("duke sucellus (awakened)"));
+		assertFalse(BossGroups.isGroupedVariant("zulrah"));
+
+		List<BossGroups.RaidMode> modes = BossGroups.getRaidModes(bosses, "duke sucellus");
+		assertEquals(1, modes.size());
+		List<String> labels = modes.get(0).variants.stream().map(v -> v.label).collect(java.util.stream.Collectors.toList());
+		assertEquals(List.of("Normal", "Awakened"), labels);
+	}
+
+	@Test
+	public void groupsPlayerAwakenedBossPbsUnderOneHeadingWithNormalFirst()
+	{
+		List<BossGroups.PlayerPb> pbs = List.of(
+			pb("vardorvis (awakened)", 300, 5),
+			pb("vardorvis", 120, 2)
+		);
+		BossGroups.GroupedPlayerPbs result = BossGroups.groupPlayerRaidPbs(pbs);
+		BossGroups.PlayerRaidGroup group = findGroup(result, "Vardorvis");
+		List<String> labels = group.variants.stream().map(v -> v.label).collect(java.util.stream.Collectors.toList());
+		assertEquals(List.of("Normal", "Awakened"), labels);
+	}
+
 	private static BossGroups.PlayerRaidGroup findGroup(BossGroups.GroupedPlayerPbs result, String heading)
 	{
 		return result.groups.stream().filter(g -> g.heading.equals(heading)).findFirst()

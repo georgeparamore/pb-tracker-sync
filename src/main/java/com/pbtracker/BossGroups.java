@@ -122,10 +122,63 @@ final class BossGroups
 		return false;
 	}
 
+	// A plugin bug (since fixed) synced Chambers of Xeric's largest team-size
+	// bucket as one run-on phrase instead of the usual " - "-delimited form -
+	// "chambers of xeric 24+ players" / "chambers of xeric challenge mode 24+
+	// players" instead of "chambers of xeric - fastest overall (24+ players)".
+	// Unlike a run-on phrase with no team size at all (too ambiguous to
+	// parse), a trailing team-size phrase here is unambiguous, so these are
+	// still worth folding into the right raid+mode heading - otherwise they
+	// permanently show up as their own disconnected entries regardless of
+	// whether the backend's already-synced bad keys ever get cleaned up.
+	private static final Pattern COX_RUN_ON_PATTERN =
+		Pattern.compile("^chambers of xeric(?: (challenge mode))? (solo|\\d+\\+?\\s*players?)$");
+
+	private static RaidVariant parseCoxRunOnVariant(String bossKey)
+	{
+		Matcher m = COX_RUN_ON_PATTERN.matcher(bossKey.trim().toLowerCase());
+		if (!m.matches())
+		{
+			return null;
+		}
+		String mode = m.group(1) != null ? m.group(1) : "";
+		String base = "chambers of xeric";
+		String heading = mode.isEmpty() ? PbTrackerPlugin.titleCase(base) : PbTrackerPlugin.titleCase(base) + " - " + PbTrackerPlugin.titleCase(mode);
+		return new RaidVariant(bossKey, base, mode, heading, PbTrackerPlugin.titleCase(m.group(2)));
+	}
+
+	// DT2 bosses that can be fought in a harder "Awakened" form - synced as a
+	// separate boss key ("duke sucellus (awakened)") rather than a " - "-
+	// delimited mode/size variant. Collapsed into one entry with a Normal/
+	// Awakened toggle instead of two disconnected boss rows.
+	private static final List<String> AWAKENABLE_BOSSES = List.of("duke sucellus", "leviathan", "whisperer", "vardorvis");
+	private static final Pattern AWAKENED_PATTERN =
+		Pattern.compile("^(duke sucellus|leviathan|whisperer|vardorvis) \\(awakened\\)$");
+
+	private static RaidVariant parseAwakenedVariant(String bossKey)
+	{
+		String lower = bossKey.trim().toLowerCase();
+		Matcher m = AWAKENED_PATTERN.matcher(lower);
+		if (m.matches())
+		{
+			String base = m.group(1);
+			return new RaidVariant(bossKey, base, "", PbTrackerPlugin.titleCase(base), "Awakened");
+		}
+		if (AWAKENABLE_BOSSES.contains(lower))
+		{
+			return new RaidVariant(bossKey, lower, "", PbTrackerPlugin.titleCase(lower), "Normal");
+		}
+		return null;
+	}
+
 	static boolean isGroupedVariant(String key)
 	{
 		String lower = key.trim().toLowerCase();
 		if (lower.startsWith(TZHAAR_CHALLENGE_PREFIX))
+		{
+			return true;
+		}
+		if (parseCoxRunOnVariant(key) != null || parseAwakenedVariant(key) != null)
 		{
 			return true;
 		}
@@ -191,6 +244,18 @@ final class BossGroups
 			return new RaidVariant(bossKey, TZHAAR_CHALLENGE_BASE, "", TZHAAR_CHALLENGES_HEADING, subLabel);
 		}
 
+		RaidVariant coxRunOn = parseCoxRunOnVariant(bossKey);
+		if (coxRunOn != null)
+		{
+			return coxRunOn;
+		}
+
+		RaidVariant awakened = parseAwakenedVariant(bossKey);
+		if (awakened != null)
+		{
+			return awakened;
+		}
+
 		String[] segments = bossKey.trim().toLowerCase().split(" - ");
 		for (int i = 0; i < segments.length; i++)
 		{
@@ -211,9 +276,17 @@ final class BossGroups
 	private static int teamSizeRank(String subLabel)
 	{
 		String lower = subLabel.toLowerCase();
+		if (lower.equals("normal"))
+		{
+			return 0;
+		}
 		if (lower.contains("solo"))
 		{
 			return 1;
+		}
+		if (lower.equals("awakened"))
+		{
+			return 2;
 		}
 		for (Map.Entry<String, Integer> ordinal : TZHAAR_CHALLENGE_ORDER.entrySet())
 		{
