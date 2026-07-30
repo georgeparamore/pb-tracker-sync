@@ -144,7 +144,11 @@ final class BossGroups
 		String mode = m.group(1) != null ? m.group(1) : "";
 		String base = "chambers of xeric";
 		String heading = mode.isEmpty() ? PbTrackerPlugin.titleCase(base) : PbTrackerPlugin.titleCase(base) + " - " + PbTrackerPlugin.titleCase(mode);
-		return new RaidVariant(bossKey, base, mode, heading, PbTrackerPlugin.titleCase(m.group(2)));
+		// These are always the 24+-player Fastest Overall bucket (see comment
+		// above) - spelling the subLabel out in full, rather than just the size
+		// ("24+ Players"), is what lets variantKind() below recognize them as
+		// Overall instead of falling through to the Other catch-all.
+		return new RaidVariant(bossKey, base, mode, heading, "Fastest Overall (" + PbTrackerPlugin.titleCase(m.group(2)) + ")");
 	}
 
 	// DT2 bosses that can be fought in a harder "Awakened" form - synced as a
